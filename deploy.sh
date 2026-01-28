@@ -68,6 +68,10 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:${SERVICE_ACCOUNT}" \
     --role="roles/aiplatform.user" --condition=None --quiet > /dev/null
 
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:${SERVICE_ACCOUNT}" \
+    --role="roles/iam.serviceAccountTokenCreator" --condition=None --quiet > /dev/null
+
 # 4. Build Frontend
 echo "[4/5] Building Frontend..."
 cd frontend
@@ -91,7 +95,7 @@ gcloud run deploy $SERVICE_NAME \
     --source . \
     --region $REGION \
     --allow-unauthenticated \
-    --set-env-vars="PROJECT_ID=$PROJECT_ID,QUARANTINE_BUCKET=$QUARANTINE_BUCKET,VAULT_BUCKET=$VAULT_BUCKET,REGION=$REGION,USE_MOCK_GCP=False,DATABASE_URL=sqlite:///./prod.db"
+    --set-env-vars="PROJECT_ID=$PROJECT_ID,QUARANTINE_BUCKET=$QUARANTINE_BUCKET,VAULT_BUCKET=$VAULT_BUCKET,REGION=$REGION,USE_MOCK_GCP=False,DATABASE_URL=sqlite:///./prod.db,SERVICE_ACCOUNT_EMAIL=$SERVICE_ACCOUNT"
 
 echo "=================================================="
 echo "Deployment Complete!"

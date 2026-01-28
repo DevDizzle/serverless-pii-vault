@@ -122,3 +122,18 @@ Enable **Cloud Audit Logs** (Data Access logs) for:
   "user_id": "u123",
   "resource": "doc_456"
 }
+```
+
+## 5. Validation & Deliverables (Mapping to Spec)
+
+This architecture explicitly addresses the validation requirements outlined in the assessment:
+
+1.  **Upload:** Supported via the `/upload` endpoint, creating a "pending" record.
+2.  **Redaction:** Performed immediately upon upload via `ProcessorService`. The process involves rasterization (PDF -> Images) to ensure **irreversibility** by removing all underlying text layers and metadata before the DLP mask is applied.
+3.  **Preview:** The system generates a temporary Signed URL to the `_redacted` artifact for the frontend to display.
+4.  **Approval:** Supported via the `/approve` endpoint.
+    *   **On Approval:** The redacted file is moved to the Vault; the raw file is permanently deleted.
+    *   **On Rejection:** Both files are deleted; nothing is stored.
+5.  **Storage:** The final redacted file is stored in the Vault bucket, isolated by user-specific prefixes (`user_id/`).
+6.  **SQL:** The extraction process runs *only* on the redacted file, and *only* the 5 required fields are written to the database.
+7.  **PII Recovery:** Impossible, as the raw file is deleted and the stored file is a flattened image-based PDF.

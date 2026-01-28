@@ -36,7 +36,7 @@ export const uploadFile = async (file: File): Promise<UploadResponse> => {
     
     const response = await apiClient.post('/upload', formData, {
         headers: {
-            'Content-Type': 'multipart/form-data'
+            'Content-Type': undefined
         }
     });
     return response.data;

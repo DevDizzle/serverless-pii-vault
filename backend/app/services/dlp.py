@@ -20,6 +20,7 @@ class DLPService:
         """
         Returns a list of bounding boxes for PII.
         """
+        logger.info("Calling DLP inspect_content")
         if settings.USE_MOCK_GCP or not self.client:
             logger.info("[MOCK] Inspecting image for PII")
             # Return dummy bounding box
