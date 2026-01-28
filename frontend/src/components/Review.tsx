@@ -33,7 +33,7 @@ export const Review: React.FC<ReviewProps> = ({ uploadData, onApproveSuccess, on
             
             <div style={{ background: '#f0f0f0', padding: '10px', marginBottom: '10px' }}>
                 <iframe 
-                    src={uploadData.preview_url} 
+                    src={`${uploadData.preview_url}#toolbar=0&navpanes=0&view=FitH`} 
                     title="Document Preview"
                     width="100%" 
                     height="600px" 
