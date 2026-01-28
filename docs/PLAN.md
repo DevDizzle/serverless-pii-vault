@@ -1,31 +1,45 @@
-# Debugging & Testing Plan
+# Gap Analysis & Implementation Roadmap
 
-## 1. Issue Analysis
-- **Symptom 1 (Fixed):** 422 Unprocessable Entity due to manual `Content-Type` header overriding browser boundary. Fixed by setting header to `undefined` in frontend.
-- **Symptom 2 (Current):** `POST /upload` fails with `500 Internal Server Error`.
-    - Logs show: `Upload failed: 500 Internal error encountered.` (Generic Google API error) and earlier `Timeout of 300.0s exceeded` (504 Deadline Exceeded).
-    - No application logs (`Starting PDF redaction process`) appeared in the failing request, suggesting the failure happens *before* PDF processing, likely during the initial GCS upload of the raw file.
+**Date:** January 28, 2026
+**Project:** Serverless PII Vault
 
-## 2. Hypothesis
-- **Primary Suspect:** `storage_service.upload_stream` is failing or hanging.
-    - Could be a temporary GCS outage (unlikely).
-    - Could be an issue with the stream object passed to `upload_from_file`.
-    - Could be permissions, though logs suggest "Internal error" rather than "Forbidden".
-- **Secondary Suspect:** DLP Service timeout/error (if logging was missed).
+## 1. Requirement Compliance Matrix
 
-## 3. Action Items (Next Session)
-1.  **Deploy with Logging:** The code has been updated with detailed logging in `backend/app/services/storage.py` and `backend/app/services/dlp.py`. **Run `deploy.sh` immediately upon resumption.**
-2.  **Analyze Logs:**
-    - Run the upload test: `curl -v -X POST -F "file=@sample-data.pdf" -H "X-User-ID: test-user" https://pii-vault-469352939749.us-central1.run.app/upload`
-    - Check logs: `gcloud logging read ...`
-    - Look for: `Attempting to upload to ...` and `Successfully uploaded to ...`.
-    - If it fails *before* "Successfully uploaded", the issue is definitely GCS.
-    - If it fails *after*, check for `Calling DLP inspect_content`.
-3.  **Potential Fixes:**
-    - **If GCS fails:** Verify bucket existence manually (`gsutil ls gs://profitscout-lx6bb-quarantine`). Ensure `BytesIO` object is at position 0 (`file_obj.seek(0)` might be needed if it was read).
-    - **If DLP fails:** Ensure the `parent` project path is correct. Check DLP API quotas.
-    - **If Timeout:** Ensure `dpi=100` optimization is active (it is in the code). Consider processing pages in parallel or increasing Cloud Run timeout (up to 60m).
+| Requirement | Status | Current Implementation | Missing / Action Required |
+| :--- | :---: | :--- | :--- |
+| **1. Upload** | ✅ | `POST /upload` -> GCS Quarantine | None. |
+| **2. Redaction (PII Types)** | ✅ | SSN, Name, Address (+ Email, Phone, Credit Card, DOB) | Confirmed in `dlp.py`. |
+| **2. Redaction (Irreversible)** | ✅ | Rasterization (PDF -> Images -> PDF) | Confirmed in `processor.py`. |
+| **3. Human Approval** | ✅ | `POST /approve` | None. |
+| **4. Store Redacted (Vault)** | ✅ | Moves to Vault bucket, deletes Raw. | None. |
+| **4. User Isolation** | ⚠️ | App-level logic uses `user_id` prefix. | **Harden:** Ensure explicit check prevents User A accessing User B (currently relies on frontend sending correct ID). Verify if GCS ACLs are needed (Spec says "Strict per-user access"). |
+| **5. Extraction (5 Fields)** | ✅ | Gemini 1.5 Flash prompt requests specific fields. | None. |
+| **6. Write to SQL** | ✅ | **Provision Cloud SQL (PostgreSQL)**. `deploy.sh` updated to create instance, DB, user, and secret. | None. |
+| **Sec: Encryption** | ✅ | GCP Default (At rest/Transit). | None. |
+| **Sec: Least Privilege** | ✅ | Service Account has specific roles. | None. |
+| **Sec: Secure Secrets** | ✅ | **Use Secret Manager**. `deploy.sh` creates secret `PII_VAULT_DB_URL` and mounts it. | None. |
+| **Sec: Audit Logging** | ✅ | **Implement Structured Logging**. `logging_config.py` created and integrated into `main.py`. | None. |
 
-## 4. Current Code State
-- **Frontend:** `api.ts` correct (`Content-Type: undefined`).
-- **Backend:** `processor.py` has `dpi=100`. `storage.py` and `dlp.py` have added logging (pending deployment).
+---
+
+## 2. Technical Roadmap
+
+### Phase 1: Infrastructure Hardening (The Missing Pieces)
+*   **Cloud SQL Provisioning:** ✅ Scripted in `deploy.sh`.
+*   **Secret Manager Integration:** ✅ Scripted in `deploy.sh`.
+*   **Structured Logging:** ✅ Implemented in code.
+
+### Phase 2: Verification & Demo Prep
+1.  **Test Data Alignment:**
+    *   The spec asks for 5 specific tax fields. The current `sample-data.pdf` is a generic PII list.
+    *   **Action:** Create/Mock a `tax_return_sample.pdf` that contains "W-2 Wages", "Deductions", etc., to prove extraction works.
+2.  **End-to-End Test:**
+    *   Run the full flow with the new SQL backend.
+    *   Query the SQL DB to prove only 5 fields are stored.
+
+---
+
+## 3. Immediate Next Steps (To Execute)
+1.  **Setup Cloud SQL:** Provision a small instance.
+2.  **Switch DB Driver:** Ensure `psycopg2` or `asyncpg` is installed (already in Dockerfile).
+3.  **Implement Structured Logging:** Modify `backend/app/main.py` to use a JSON formatter.

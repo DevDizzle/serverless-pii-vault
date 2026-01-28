@@ -32,8 +32,13 @@ export const Review: React.FC<ReviewProps> = ({ uploadData, onApproveSuccess, on
             <p>Please review the sanitized document below. PII should be blacked out.</p>
             
             <div style={{ background: '#f0f0f0', padding: '10px', marginBottom: '10px' }}>
-                <strong>Preview URL:</strong> <a href={uploadData.preview_url} target="_blank" rel="noreferrer">{uploadData.preview_url}</a>
-                <p><em>(In a real deployment, this would be an embedded PDF viewer)</em></p>
+                <iframe 
+                    src={uploadData.preview_url} 
+                    title="Document Preview"
+                    width="100%" 
+                    height="600px" 
+                    style={{ border: 'none' }}
+                />
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>

@@ -9,14 +9,18 @@ from google.api_core import exceptions
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+import sys
+
 class AIService:
     def __init__(self):
         if not settings.USE_MOCK_GCP:
             try:
-                # Preview models like gemini-3.0-flash-preview are often on the global endpoint
+                # Use gemini-3-flash-preview as requested
                 vertexai.init(project=settings.PROJECT_ID, location="global")
-                self.model = GenerativeModel("gemini-3.0-flash-preview") 
+                self.model = GenerativeModel("gemini-3-flash-preview") 
             except Exception as e:
+                # Log to stderr to ensure it appears in Cloud Run logs
+                print(f"CRITICAL: Failed to init Vertex AI: {e}", file=sys.stderr)
                 logger.warning(f"Failed to init Vertex AI: {e}")
                 self.model = None
         else:
@@ -36,9 +40,13 @@ class AIService:
 
     def extract_data(self, gcs_uri: str):
         """
-        Sends the GCS URI of the redacted PDF to Gemini 3.0 Flash for extraction.
+        Sends the GCS URI of the redacted PDF to Gemini for extraction.
         """
         if settings.USE_MOCK_GCP or not self.model:
+            # If AI is missing in prod, we should raise an error rather than hallucinate data
+            if not settings.USE_MOCK_GCP:
+                 raise RuntimeError("Vertex AI model not initialized. Check logs for init errors.")
+
             logger.info(f"[MOCK] Extracting data from {gcs_uri}")
             return {
                 "filing_status": "Single",
@@ -49,10 +57,15 @@ class AIService:
             }
 
         prompt = """
-        You are a tax assistant. Analyze this redacted document. 
-        Extract the following fields into JSON: 
-        'filing_status', 'w2_wages', 'total_deductions', 'ira_distributions', 'capital_gain_loss'. 
-        If a value is redacted or missing, return null. 
+        You are a tax assistant. Analyze this redacted document, which is a US IRS Form 1040. 
+        Extract the following fields into a flat JSON object: 
+        - 'filing_status': Look for the "Filing Status" section (Single, Married filing jointly, etc.).
+        - 'w2_wages': Line 1z (Wages, salaries, tips, etc.).
+        - 'total_deductions': Line 12 (Standard deduction or itemized deductions).
+        - 'ira_distributions': Line 4b (Taxable amount of IRA distributions).
+        - 'capital_gain_loss': Line 7 (Capital gain or (loss)).
+
+        If a value is redacted, missing, or blank, return null. 
         Do not attempt to guess redacted values.
         Return ONLY valid JSON.
         """

@@ -16,7 +16,8 @@ class ProcessorService:
         
         # 1. Rasterize
         try:
-            images = convert_from_bytes(pdf_bytes, dpi=100)
+            # Increase DPI to 300 for better OCR accuracy in DLP
+            images = convert_from_bytes(pdf_bytes, dpi=300)
         except Exception as e:
             logger.error(f"Error converting PDF to images: {e}")
             raise

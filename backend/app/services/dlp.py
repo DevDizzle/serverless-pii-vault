@@ -33,11 +33,25 @@ class DLPService:
         info_types = [
             {"name": "US_SOCIAL_SECURITY_NUMBER"},
             {"name": "PERSON_NAME"},
-            {"name": "STREET_ADDRESS"}
+            {"name": "STREET_ADDRESS"},
+            {"name": "EMAIL_ADDRESS"},
+            {"name": "CREDIT_CARD_NUMBER"},
+            {"name": "PHONE_NUMBER"},
+            {"name": "DATE_OF_BIRTH"},
+            {"name": "US_INDIVIDUAL_TAXPAYER_IDENTIFICATION_NUMBER"},
+            {"name": "FINANCIAL_ACCOUNT_NUMBER"},
+            {"name": "US_BANK_ROUTING_MICR"}
         ]
         
         inspect_config = {
             "info_types": info_types,
+            "custom_info_types": [
+                {
+                    "info_type": {"name": "FALLBACK_SSN_REGEX"},
+                    "regex": {"pattern": r"\d{3}-\d{2}-\d{4}"}
+                }
+            ],
+            "min_likelihood": dlp_v2.Likelihood.UNLIKELY,
             "include_quote": True
         }
 

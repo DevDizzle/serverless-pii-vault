@@ -14,6 +14,11 @@ from app.config import get_settings
 from app.services.storage import storage_service
 from app.services.processor import processor_service
 from app.services.ai import ai_service
+from app.logging_config import setup_logging, log_audit
+
+# Setup Structured Logging
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
@@ -30,9 +35,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logger = logging.getLogger("uvicorn")
-
 # ... API Routes ...
+
+def clean_currency(value):
+    """
+    Sanitize currency strings (e.g., "$53,376.", "1,200") into floats.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        # Remove commas, dollar signs, whitespace
+        clean_val = value.replace(",", "").replace("$", "").strip()
+        # Handle potential trailing period from OCR/AI (e.g., "53376.")
+        if clean_val.endswith('.'):
+            clean_val = clean_val[:-1]
+        try:
+            return float(clean_val)
+        except ValueError:
+            logger.warning(f"Failed to parse currency value: {value}")
+            return None
+    return None
 
 @app.post("/upload")
 async def upload_file(
@@ -40,7 +64,7 @@ async def upload_file(
     x_user_id: str = Header(..., alias="X-User-ID")
 ):
     correlation_id = str(uuid.uuid4())
-    logger.info(f"Starting upload for user {x_user_id}, correlation {correlation_id}")
+    log_audit("UPLOAD_INITIATED", x_user_id, {"correlation_id": correlation_id, "filename": file.filename})
 
     try:
         content = await file.read()
@@ -86,7 +110,7 @@ async def approve_document(
     x_user_id: str = Header(..., alias="X-User-ID"),
     db: Session = Depends(get_db)
 ):
-    logger.info(f"Approving document {correlation_id} for user {x_user_id}")
+    log_audit("APPROVAL_INITIATED", x_user_id, {"correlation_id": correlation_id})
     
     quarantine_redacted_blob = f"{x_user_id}/{correlation_id}_redacted.pdf"
     quarantine_raw_blob = f"{x_user_id}/{correlation_id}_raw.pdf"
@@ -119,14 +143,20 @@ async def approve_document(
         db_record = TaxRecord(
             user_id=x_user_id,
             filing_status=extracted_data.get("filing_status"),
-            w2_wages=extracted_data.get("w2_wages"),
-            total_deductions=extracted_data.get("total_deductions"),
-            ira_distributions=extracted_data.get("ira_distributions"),
-            capital_gain_loss=extracted_data.get("capital_gain_loss")
+            w2_wages=clean_currency(extracted_data.get("w2_wages")),
+            total_deductions=clean_currency(extracted_data.get("total_deductions")),
+            ira_distributions=clean_currency(extracted_data.get("ira_distributions")),
+            capital_gain_loss=clean_currency(extracted_data.get("capital_gain_loss"))
         )
         db.add(db_record)
         db.commit()
         db.refresh(db_record)
+
+        log_audit("RECORD_CREATED", x_user_id, {
+            "record_id": db_record.id, 
+            "correlation_id": correlation_id,
+            "vault_blob": vault_blob_name
+        })
 
         return {"status": "approved", "data": extracted_data, "record_id": db_record.id}
 
