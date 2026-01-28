@@ -51,3 +51,8 @@ export const getRecords = async (): Promise<TaxRecord[]> => {
     const response = await apiClient.get('/records');
     return response.data;
 };
+
+export const getRecord = async (id: number): Promise<TaxRecord> => {
+    const response = await apiClient.get(`/records/${id}`);
+    return response.data;
+};

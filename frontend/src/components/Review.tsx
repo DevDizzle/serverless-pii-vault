@@ -4,7 +4,7 @@ import type { UploadResponse } from '../api';
 
 interface ReviewProps {
     uploadData: UploadResponse;
-    onApproveSuccess: () => void;
+    onApproveSuccess: (recordId: number) => void;
     onCancel: () => void;
 }
 
@@ -16,8 +16,8 @@ export const Review: React.FC<ReviewProps> = ({ uploadData, onApproveSuccess, on
         setApproving(true);
         setError(null);
         try {
-            await approveDocument(uploadData.correlation_id);
-            onApproveSuccess();
+            const response = await approveDocument(uploadData.correlation_id);
+            onApproveSuccess(response.record_id);
         } catch (err: any) {
             console.error(err);
             setError("Approval failed.");

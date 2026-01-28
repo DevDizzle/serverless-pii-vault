@@ -164,6 +164,20 @@ async def approve_document(
         logger.error(f"Approval failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/records/{record_id}")
+async def get_record(
+    record_id: int,
+    x_user_id: str = Header(..., alias="X-User-ID"),
+    db: Session = Depends(get_db)
+):
+    record = db.query(TaxRecord).filter(
+        TaxRecord.id == record_id, 
+        TaxRecord.user_id == x_user_id
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return record
+
 @app.get("/records")
 async def get_records(
     x_user_id: str = Header(..., alias="X-User-ID"),
