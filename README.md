@@ -15,7 +15,7 @@ The solution is a **Serverless Monolith** (FastAPI) on Cloud Run, leveraging ful
 
 ```mermaid
 graph TD
-    User([User]) -->|1. Upload PDF| API[Cloud Run API (FastAPI)]
+    User([User]) -->|1. Upload PDF| API["Cloud Run API (FastAPI)"]
     
     subgraph "Zone 1: Quarantine (Ephemeral)"
         API -->|Stream Raw| QB[Quarantine Bucket]
@@ -27,18 +27,18 @@ graph TD
     end
     
     subgraph "Zone 3: Human Gate"
-        User -->|3. View Preview| SignedURL[Signed URL (Redacted Only)]
+        User -->|3. View Preview| SignedURL[Signed URL - Redacted Only]
         User -->|4. Approve| API
     end
     
     subgraph "Zone 4: The Vault (Secure)"
         API -->|5. Move Redacted| VB[Vault Bucket]
-        API -->|6. Extract Data| Vertex[Vertex AI (Gemini)]
+        API -->|6. Extract Data| Vertex[Vertex AI - Gemini]
         Vertex -->|Read Redacted| VB
     end
     
     subgraph "Zone 5: Persistence"
-        API -->|7. Write JSON| SQL[Cloud SQL (PostgreSQL)]
+        API -->|7. Write JSON| SQL[Cloud SQL - PostgreSQL]
     end
     
     style QB fill:#ffcccc,stroke:#333,stroke-width:2px
